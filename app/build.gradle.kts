@@ -1,3 +1,4 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
-android { namespace = "dev.nova.assistant"; compileSdk = 35
+kotlin { jvmToolchain(17) }
+android { compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }; namespace = "dev.nova.assistant"; compileSdk = 35
  defaultConfig { applicationId = "dev.nova.assistant"; minSdk = 29; targetSdk = 35; versionCode = 1; versionName = "0.1.0" } }
