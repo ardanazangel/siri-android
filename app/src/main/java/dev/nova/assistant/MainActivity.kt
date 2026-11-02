@@ -18,10 +18,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private lateinit var local: LocalParakeet
     private var busy = false
+    private lateinit var chatGptSignIn: ChatGptSignIn
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
         local = LocalParakeet(applicationContext)
+        chatGptSignIn = ChatGptSignIn(applicationContext)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -48,6 +50,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root.addView(title)
         root.addView(status)
         root.addView(button)
+        root.addView(Button(this).apply {
+            text = "Conectar ChatGPT (experimental)"
+            setOnClickListener {
+                status.text = "Abriendo autorización de ChatGPT…"
+                chatGptSignIn.signIn { result -> runOnUiThread { status.text = result } }
+            }
+        })
         setContentView(root)
     }
     private fun listen() {
