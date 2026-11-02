@@ -36,3 +36,16 @@ Nova utiliza ahora `SpeechRecognizer` conectado **solo** al servicio Android de 
 4. Instala la nueva APK de Nova desde GitHub Actions y pulsa **Hablar**.
 
 **Limitación:** es una integración con un servicio local externo, no un modelo embebido en Nova. La disponibilidad y compatibilidad del servicio dependerán de la versión de Parakeetype instalada. Si el servicio no se detecta, Nova lo indicará sin recurrir a Google. La integración todavía necesita prueba real en Android.
+
+
+## Nova 0.2 — Parakeet integrado (experimental)
+
+La nueva compilación incluye **Parakeet-TDT 0.6B v3 INT8** y **sherpa-onnx** dentro de la APK arm64. **No requiere instalar Parakeetype ni Google Speech Services**, y la app no solicita permiso INTERNET. La descarga de los pesos ocurre durante el build de GitHub Actions, no en el teléfono.
+
+- Pulsa **Hablar** y espera a que se cargue el modelo (la primera ejecución copia ~640 MB al almacenamiento privado).
+- Habla durante los 7 segundos de grabación; Nova transcribe offline y ejecuta los comandos existentes.
+- Se necesitan aproximadamente 1,4 GB libres para APK + extracción del modelo.
+- Es una integración inicial por lotes: no hay VAD, streaming, hotword ni grabación en segundo plano todavía.
+- **Sin pruebas en dispositivo**; la compatibilidad y rendimiento reales deben validarse con la nueva APK.
+
+Las instrucciones anteriores de Parakeetype se refieren a la versión 0.1.
