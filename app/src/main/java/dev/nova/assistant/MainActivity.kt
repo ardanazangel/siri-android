@@ -6,10 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
-import android.speech.RecognizerIntent
-import android.speech.RecognitionListener
-import android.speech.SpeechRecognizer
-import android.content.ComponentName
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.widget.Button
@@ -20,10 +16,12 @@ import java.util.Locale
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var status: TextView
     private var tts: TextToSpeech? = null
-    private var recognizer: SpeechRecognizer? = null
+    private lateinit var local: LocalParakeet
+    private var busy = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
+        local = LocalParakeet(applicationContext)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -57,49 +55,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 10)
             return
         }
-        // Only use an explicitly installed Parakeet-backed RecognitionService.
-        // Never silently fall back to Google's cloud-capable recognizer.
-        val services = packageManager.queryIntentServices(
-            Intent("android.speech.RecognitionService"), PackageManager.MATCH_ALL
-        )
-        val local = services.firstOrNull {
-            it.serviceInfo.packageName.contains("parakeetype", ignoreCase = true)
-        }?.serviceInfo
-        if (local == null) {
-            status.text = "Instala Parakeetype (F-Droid) e importa su modelo Parakeet. Nova no enviará tu voz a Google."
-            return
-        }
-        recognizer?.destroy()
-        recognizer = SpeechRecognizer.createSpeechRecognizer(
-            this, ComponentName(local.packageName, local.name)
-        ).also { sr ->
-            sr.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) { status.text = "Escuchando localmente…" }
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() { status.text = "Transcribiendo con Parakeet…" }
-                override fun onError(error: Int) { status.text = "Error de reconocimiento local: $error. Comprueba que Parakeetype tiene el modelo cargado." }
-                override fun onResults(results: Bundle?) {
-                    val phrase = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                    if (phrase.isNullOrBlank()) { status.text = "No he entendido nada"; return }
-                    status.text = "Has dicho: $phrase"
-                    execute(phrase.lowercase(Locale("es", "ES")))
+        if (busy) return
+        busy = true
+        status.text = "Preparando Parakeet local… (el primer inicio puede tardar)"
+        Thread {
+            try {
+                val phrase = local.recordAndTranscribe {
+                    runOnUiThread { status.text = "Escuchando durante 7 segundos…" }
                 }
-                override fun onPartialResults(partialResults: Bundle?) {
-                    partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()?.let { status.text = it }
+                runOnUiThread {
+                    status.text = if (phrase.isBlank()) "No he entendido nada" else "Has dicho: $phrase"
+                    if (phrase.isNotBlank()) execute(phrase.lowercase(Locale("es", "ES")))
                 }
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "Error de Parakeet: ${e.message}" }
+            } finally {
+                runOnUiThread { busy = false }
             }
-            status.text = "Preparando Parakeet…"
-            sr.startListening(intent)
-        }
+        }.start()
     }
     private fun execute(command: String) {
         when {
@@ -122,5 +95,5 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "nova-response")
     }
     override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.language = Locale("es", "ES") }
-    override fun onDestroy() { recognizer?.destroy(); tts?.stop(); tts?.shutdown(); super.onDestroy() }
+    override fun onDestroy() { local.release(); tts?.stop(); tts?.shutdown(); super.onDestroy() }
 }
